@@ -1,0 +1,139 @@
+<?xml version="1.0" ?>
+<robot name="hand3finger">
+    <link name="base_link">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.001"/>
+            <inertia ixx="0.00001"  iyy="0.00001" izz="0.00001" ixy="0"  ixz="0" iyz="0"/>
+        </inertial>
+    </link>
+
+	<link name="virtual_link1">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.001"/>
+            <inertia ixx="0.00001"  iyy="0.00001" izz="0.00001" ixy="0"  ixz="0" iyz="0"/>
+        </inertial>
+    </link>
+    <link name="virtual_link2">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.001"/>
+            <inertia ixx="0.00001"  iyy="0.00001" izz="0.00001" ixy="0"  ixz="0" iyz="0"/>
+        </inertial>
+    </link>
+    <link name="virtual_link3">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.001"/>
+            <inertia ixx="0.00001"  iyy="0.00001" izz="0.00001" ixy="0"  ixz="0" iyz="0"/>
+        </inertial>
+    </link>
+    <link name="virtual_link4">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.001"/>
+            <inertia ixx="0.00001"  iyy="0.00001" izz="0.00001" ixy="0"  ixz="0" iyz="0"/>
+        </inertial>
+    </link>
+    <link name="virtual_link5">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.001"/>
+            <inertia ixx="0.00001"  iyy="0.00001" izz="0.00001" ixy="0"  ixz="0" iyz="0"/>
+        </inertial>
+    </link>
+    <link name="palm">
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.3"/>
+            <inertia ixx="0.0002"  iyy="0.0002" izz="0.0001" ixy="0"  ixz="0" iyz="0"/>
+        </inertial>
+        <visual>
+	        <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
+	        <geometry>
+	            <box size="0.1 0.1 0.04" />
+	        </geometry>
+	        <material name="material_blue">
+		        <color rgba="0.5 0.5 0.7.0 1.0" />
+	        </material>
+	    </visual>
+    </link>
+
+<!-- finger 1 -->
+	<link name="finger1-link0">
+        <inertial>
+            <origin xyz="0.03 0 0" rpy="0 0 0"/>
+            <mass value="0.08"/>
+            <inertia ixx="0.0001"  iyy="0.0001" izz="0.0002" ixy="0"  ixz="0" iyz="0"/>
+        </inertial>
+        <visual>
+	        <origin xyz="0.03 0.0 0.0" rpy="0 0 0" />
+	        <geometry>
+	            <box size="0.07 0.025 0.025" />
+	        </geometry>
+	        <material name="material_orange">
+		        <color rgba="0.9 0.6 0.1 1.0" />
+	        </material>
+	    </visual>
+    </link>
+
+
+   <joint name="palm-j0" type="prismatic">
+        <parent link="base_link" />
+        <child link="virtual_link1" />
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <axis xyz="1 0 0" />
+        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+    </joint>
+
+    <joint name="palm-j1" type="prismatic">
+        <parent link="virtual_link1" />
+        <child link="virtual_link2" />
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <axis xyz="0 1 0" />
+        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+    </joint>
+    
+    <joint name="palm-j2" type="prismatic">
+        <parent link="virtual_link2" />
+        <child link="virtual_link3" />
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <axis xyz="0 0 1" />
+        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+    </joint>
+    
+    <joint name="palm-j3" type="revolute">
+        <parent link="virtual_link3" />
+        <child link="virtual_link4" />
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <axis xyz="1 0 0" />
+        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+    </joint>
+    
+    <joint name="palm-j4" type="revolute">
+        <parent link="virtual_link4" />
+        <child link="virtual_link5" />
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <axis xyz="0 1 0" />
+        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+    </joint>
+    
+    <joint name="palm-j5" type="revolute">
+        <parent link="virtual_link5" />
+        <child link="palm" />
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <axis xyz="0 0 1" />
+        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+    </joint>
+
+<!-- finger-1 -->
+    <joint name="finger1-j0" type="revolute">
+        <parent link="palm" />
+        <child link="finger1-link0" />
+        <origin xyz="0 0 0" rpy="1.5707 0 0"/>
+        <axis xyz="0 0 1" />
+        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+    </joint>
+
+</robot>
