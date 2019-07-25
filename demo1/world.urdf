@@ -5,7 +5,7 @@
 
 	<robot name="Hand3Finger">
 		<model dir="./resources" path="hand.urdf" name="hand3finger" />
-		<origin xyz="0.0 0.0 0.05" rpy="0 0 0.4" />
+		<origin xyz="0.0 0.0 0.05" rpy="0 0 0" />
 	</robot>
 
 	<static_object name="Floor">
