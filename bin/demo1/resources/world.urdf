@@ -1,11 +1,11 @@
 <?xml version="1.0" ?>
 
-<world name="demo_world" gravity="0.0 0.0 0.0">
-<!-- <world name="demo_world" gravity="0.0 0.0 -9.81"> -->
+<!-- <world name="demo_world" gravity="0.0 0.0 0.0"> -->
+<world name="demo_world" gravity="0.0 0.0 -9.81">
 
 	<robot name="Hand3Finger">
 		<model dir="./resources" path="hand.urdf" name="hand3finger" />
-		<origin xyz="0.0 0.0 0.05" rpy="0 0 0" />
+		<origin xyz="0.0 0.0 0.25" rpy="0 0 0" />
 	</robot>
 
 	<static_object name="Floor">
@@ -27,8 +27,8 @@
 	    </visual>
 	</static_object>
 
-<!-- 	<dynamic_object name="Box1">
-		<origin xyz="-0.25 0.4 0.05" rpy="0 0 0" />
+	<dynamic_object name="Box1">
+		<origin xyz="0.05 0.0 0.05" rpy="0 0 0" />
 		<inertial>
 	        <origin xyz="0 0 0" rpy="0 0 0" />
 	        <mass value="0.5" />
@@ -38,8 +38,8 @@
 	        <geometry>
 	            <box size="0.1 0.1 0.1" />
 	        </geometry>
-	        <material name="material_green">
-		        <color rgba="0.2 0.5 0.2 1.0" />
+	        <material name="material_black">
+		        <color rgba="0.2 0.2 0.2 1.0" />
 	        </material>
 	    </visual>
 		<collision>
@@ -47,7 +47,7 @@
 	            <box size="0.1 0.1 0.1" />
 	        </geometry>
 	    </collision>		
-	</dynamic_object> -->
+	</dynamic_object>
 
 	<light name="light1" type="directional">
 		<position xyz="2.0 -2.0 2.0" />

@@ -229,6 +229,7 @@ void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim)
 {
 
 	int dof = robot->dof();
+	Eigen::VectorXd gravity_torques = Eigen::VectorXd::Zero(dof);
 	Eigen::VectorXd robot_torques = Eigen::VectorXd::Zero(dof);
 	redis_client.setEigenMatrixDerived(JOINT_TORQUES_COMMANDED_KEY, robot_torques);
 
@@ -244,10 +245,11 @@ void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim)
 	while (runloop) {
 		// wait for next scheduled loop
 		timer.waitForNextLoop();
-
+		// update gravity term
+		robot->gravityVector(gravity_torques);
 		// read torques from Redis
 		redis_client.getEigenMatrixDerived(JOINT_TORQUES_COMMANDED_KEY, robot_torques);
-		sim->setJointTorques(robot_name, robot_torques);
+		sim->setJointTorques(robot_name, robot_torques+gravity_torques);
 
 		// update simulation by 1ms
 		sim->integrate(1/sim_freq);

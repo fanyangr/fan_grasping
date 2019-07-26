@@ -82,8 +82,8 @@
     <link name="finger0-link1">
         <inertial>
             <origin xyz="0.0 -0.0075 0" rpy="0 0 0"/>
-            <mass value="0.0716"/>
-            <inertia ixx="0.00003"  iyy="0.000084" izz="0.000088" ixy="0"  ixz="0" iyz="0"/>
+            <mass value="0.01"/>
+            <inertia ixx="0.000003"  iyy="0.0000084" izz="0.0000088" ixy="0"  ixz="0" iyz="0"/>
         </inertial>
         <visual>
             <origin xyz="0.0 -0.0075 0" rpy="0 0 0" />
@@ -457,7 +457,7 @@
     <joint name="finger0-j0" type="revolute">
         <parent link="palm" />
         <child link="finger0-link0" />
-        <origin xyz="-0.0155 -0.015 0.008" rpy="0 0 0"/>
+        <origin xyz="-0.0155 -0.015 -0.008" rpy="0 0 0"/>
         <axis xyz="1 0 0" />
         <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
     </joint>
@@ -486,9 +486,6 @@
         <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
     </joint>
 
-
-
-
 <!-- finger-1 -->
     <joint name="finger1-j0" type="revolute">
         <parent link="palm" />
@@ -501,7 +498,7 @@
     <joint name="finger1-j1" type="revolute">
         <parent link="finger1-link0" />
         <child link="finger1-link1" />
-        <origin xyz="0.016 0 0" rpy="0 0 0"/>
+        <origin xyz="0.016 0 0" rpy="0 0.3 0"/>
         <axis xyz="0 1 0" />
         <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
     </joint>
@@ -509,7 +506,7 @@
     <joint name="finger1-j2" type="revolute">
         <parent link="finger1-link1" />
         <child link="finger1-link2" />
-        <origin xyz="0.054 0 0" rpy="0 0 0"/>
+        <origin xyz="0.054 0 0" rpy="0 0.3 0"/>
         <axis xyz="0 1 0" />
         <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
     </joint>
@@ -517,7 +514,7 @@
     <joint name="finger1-j3" type="revolute">
         <parent link="finger1-link2" />
         <child link="finger1-link3" />
-        <origin xyz="0.0384 0 0" rpy="0 0 0"/>
+        <origin xyz="0.0384 0 0" rpy="0 0.3 0"/>
         <axis xyz="0 1 0" />
         <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
     </joint>
@@ -534,7 +531,7 @@
     <joint name="finger2-j1" type="revolute">
         <parent link="finger2-link0" />
         <child link="finger2-link1" />
-        <origin xyz="0.016 0.0 0.0" rpy="0 0 0"/>
+        <origin xyz="0.016 0.0 0.0" rpy="0 0.3 0"/>
         <axis xyz="0 1 0" />
         <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
     </joint>
@@ -542,7 +539,7 @@
     <joint name="finger2-j2" type="revolute">
         <parent link="finger2-link1" />
         <child link="finger2-link2" />
-        <origin xyz="0.054 0 0" rpy="0 0 0"/>
+        <origin xyz="0.054 0 0" rpy="0 0.3 0"/>
         <axis xyz="0 1 0" />
         <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
     </joint>
@@ -550,7 +547,7 @@
     <joint name="finger2-j3" type="revolute">
         <parent link="finger2-link2" />
         <child link="finger2-link3" />
-        <origin xyz="0.0384 0 0" rpy="0 0 0"/>
+        <origin xyz="0.0384 0 0" rpy="0 0.3 0"/>
         <axis xyz="0 1 0" />
         <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
     </joint>
@@ -561,31 +558,31 @@
         <child link="finger3-link0" />
         <origin xyz="0.0475 0.041 -0.015" rpy="0 0 0"/>
         <axis xyz="1 0 0" />
-        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+        <!-- <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" /> -->
     </joint>
 
     <joint name="finger3-j1" type="revolute">
         <parent link="finger3-link0" />
         <child link="finger3-link1" />
-        <origin xyz="0.016 0 0" rpy="0 0 0"/>
+        <origin xyz="0.016 0 0" rpy="0 0.3 0"/>
         <axis xyz="0 1 0" />
-        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+        <!-- <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" /> -->
     </joint>
 
     <joint name="finger3-j2" type="revolute">
         <parent link="finger3-link1" />
         <child link="finger3-link2" />
-        <origin xyz="0.054 0 0" rpy="0 0 0"/>
+        <origin xyz="0.054 0 0" rpy="0 0.3 0"/>
         <axis xyz="0 1 0" />
-        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+        <!-- <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" /> -->
     </joint>
 
     <joint name="finger3-j3" type="revolute">
         <parent link="finger3-link2" />
         <child link="finger3-link3" />
-        <origin xyz="0.0384 0 0" rpy="0 0 0"/>
+        <origin xyz="0.0384 0 0" rpy="0 0.3 0"/>
         <axis xyz="0 1 0" />
-        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+        <!-- <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" /> -->
     </joint>
 
 </robot>
