@@ -231,16 +231,16 @@ void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim)
 	int dof = robot->dof();
 	Eigen::VectorXd gravity_torques = Eigen::VectorXd::Zero(dof);
 	Eigen::VectorXd robot_torques = Eigen::VectorXd::Zero(dof);
-	redis_client.setEigenMatrixDerived(JOINT_TORQUES_COMMANDED_KEY, robot_torques);
+	redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, robot_torques);
 
 
 	// create a loop timer 
-	double sim_freq = 2000;  // set the simulation frequency. Ideally 10kHz
+	double sim_freq = 2000.0;  // set the simulation frequency. Ideally 10kHz
 	LoopTimer timer;
 	timer.setLoopFrequency(sim_freq);   // 10 KHz
 	// timer.setThreadHighPriority();  // make timing more accurate. requires running executable as sudo.
 	timer.setCtrlCHandler(sighandler);    // exit while loop on ctrl-c
-	timer.initializeTimer(1000000); // 1 ms pause before starting loop
+	//timer.initializeTimer(1000000); // 1 ms pause before starting loop
 
 	while (runloop) {
 		// wait for next scheduled loop
@@ -248,7 +248,9 @@ void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim)
 		// update gravity term
 		robot->gravityVector(gravity_torques);
 		// read torques from Redis
-		redis_client.getEigenMatrixDerived(JOINT_TORQUES_COMMANDED_KEY, robot_torques);
+		//redis_client.getEigenMatrixDerived(JOINT_TORQUES_COMMANDED_KEY, robot_torques);
+		robot_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
+		//cout << robot_torques << endl;
 		sim->setJointTorques(robot_name, robot_torques+gravity_torques);
 
 		// update simulation by 1ms
@@ -258,10 +260,11 @@ void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim)
 		sim->getJointPositions(robot_name, robot->_q);
 		sim->getJointVelocities(robot_name, robot->_dq);
 		robot->updateModel();
+		robot->updateKinematics();
 
 		// write joint kinematics to redis
-		redis_client.setEigenMatrixDerived(JOINT_ANGLES_KEY, robot->_q);
-		redis_client.setEigenMatrixDerived(JOINT_VELOCITIES_KEY, robot->_dq);
+		redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);
+		redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
 		redis_client.setCommandIs(SIM_TIMESTAMP_KEY,std::to_string(timer.elapsedTime()));
 
 		sim_counter++;

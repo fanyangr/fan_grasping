@@ -28,7 +28,8 @@ const string robot_name = "Hand3Finger";
 
 const std::string JOINT_ANGLES_KEY  = "sai2::graspFan::sensors::q";
 const std::string JOINT_VELOCITIES_KEY = "sai2::graspFan::sensors::dq";
-const std::string JOINT_TORQUES_COMMANDED_KEYS = "sai2::graspFan::actuators::fgc";
+const std::string JOINT_TORQUES_COMMANDED_KEY = "sai2::graspFan::actuators::fgc";
+
 #define NUM_OF_FINGERS    3
 
 #define PRE_GRASP        0
@@ -65,7 +66,6 @@ int main (int argc, char** argv)
 	position_command_torques.push_back(VectorXd::Zero(dof));
 	position_command_torques.push_back(VectorXd::Zero(dof));
 	position_command_torques.push_back(VectorXd::Zero(dof));
-	position_command_torques.push_back(VectorXd::Zero(dof));
 	//control 4 fingers and the palm, finger 0,1,2,3 and palm
 
 
@@ -88,22 +88,23 @@ int main (int argc, char** argv)
 	link_names.push_back("palm");
 	for (int i = 0; i < NUM_OF_FINGERS; i++)
 	{
-		position_tasks.push_back(new Sai2Primitives::PositionTask(robot, link_names[i], poses[i], 1/frequency));
+		position_tasks.push_back(new Sai2Primitives::PositionTask(robot, link_names[i], poses[i]));
 	}
 
 	auto palm_posori_task = new Sai2Primitives::PosOriTask(robot, "palm", Vector3d(0.0,0.0,0.0));
-
+	//auto test_task =  new Sai2Primitives::PositionTask(robot, "palm", Vector3d(0.0,0.0,0.0));
 
 	LoopTimer timer;
 	timer.setLoopFrequency(frequency);
 	timer.setCtrlCHandler(sighandler);
-	timer.initializeTimer(1000000);
+	//timer.initializeTimer(1000000);
 
 
 	runloop = true ;
 	//cout << endl << position_tasks[0]._desired_position << endl;
 	//cout << endl << position_tasks[1]._desired_position << endl;
 	//cout << endl << position_tasks[2]._desired_position << endl;
+	int loop_counter = 0;
 	while(runloop)
 	{
 
@@ -116,30 +117,57 @@ int main (int argc, char** argv)
 
 		if (state == PRE_GRASP)
 		{
+			palm_posori_task->_desired_position = Vector3d(0.0,0.0,0.0);
 			N_prec.setIdentity();
 			palm_posori_task->updateTaskModel(N_prec);
 			N_prec = palm_posori_task->_N;
-			palm_posori_task->_desired_position = Vector3d(0.0,0.0,0.0);
+			//cout << N_prec << endl << endl;
+			//test_task->_desired_position = Vector3d(1.0,1.0,0.0);
+			//test_task->_kp=100;
+			//test_task->_kv = 100;
+			//test_task->_ki = 100;
+
 			palm_posori_task->computeTorques(palm_command_torques);
-			//cout << "Here's the torque" << palm_command_torques << endl;
-			position_tasks[0]->updateTaskModel(N_prec);
-			position_tasks[1]->updateTaskModel(N_prec);
-			position_tasks[2]->updateTaskModel(N_prec);
-			//position_tasks[3]->updateTaskModel(N_prec);
+			//test_task->computeTorques(palm_command_torques);
+			cout << "Here's the torque" << palm_command_torques << endl;
+			
 			position_tasks[0]->_desired_position = Vector3d(-0.05, -0.05, -0.05);
 			position_tasks[1]->_desired_position = Vector3d(0.08, -0.041, -0.04);
 			position_tasks[2]->_desired_position = Vector3d(0.08, 0.0, -0.04);
+			
+			//position_tasks[0]->updateTaskModel(N_prec);
+			//position_tasks[1]->updateTaskModel(N_prec);
+			//position_tasks[2]->updateTaskModel(N_prec);
+			//position_tasks[3]->updateTaskModel(N_prec);
+
 			position_tasks[0]->computeTorques(position_command_torques[0]);
 			position_tasks[0]->computeTorques(position_command_torques[1]);
 			position_tasks[0]->computeTorques(position_command_torques[2]);
-			cout << endl << palm_command_torques << endl;
-			cout << endl << position_command_torques[0] << endl;			
+			//cout << endl << palm_command_torques << endl;
+			// cout << endl << position_command_torques[1] << endl;
+			// if (loop_counter >= 1 )
+			// {
+			// 	break;
+			// }
+			loop_counter++;			
 		}
-	}
+
 	command_torques = position_command_torques[0] +position_command_torques[1] \
-	+ position_command_torques[2] + position_command_torques[3] \
-	+ position_command_torques[4] + palm_command_torques;
-	redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEYS, command_torques);
+	+ position_command_torques[2] + position_command_torques[3]\
+	+ palm_command_torques + coriolis;
+	//cout << command_torques << endl;
+	redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 	command_torques.setZero();
+	}
+
+	command_torques.setZero();
+    redis_client.setEigenMatrixDerived(JOINT_TORQUES_COMMANDED_KEY, command_torques);
+
+    double end_time = timer.elapsedTime();
+    std::cout << "\n";
+    std::cout << "Loop run time  : " << end_time << " seconds\n";
+    std::cout << "Loop updates   : " << timer.elapsedCycles() << "\n";
+    std::cout << "Loop frequency : " << timer.elapsedCycles()/end_time << "Hz\n";
+
 	return 0;
 }
