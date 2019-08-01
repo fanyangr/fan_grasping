@@ -8,11 +8,6 @@
 		<origin xyz="0.0 0.0 0.25" rpy="0 0 0" />
 	</robot>
 
-	<robot name="Finger0">
-		<model dir="./resources" path="finger0.urdf" name="finger0" />
-		<origin xyz="0.0 0.0 0.25" rpy="0 0 0" />
-	</robot>	
-
 	<static_object name="Floor">
 		<origin xyz="0.0 0.0 -0.05" rpy="0 0 0" />
 		<collision>
@@ -32,8 +27,8 @@
 	    </visual>
 	</static_object>
 
-	<dynamic_object name="Box1">
-		<origin xyz="0.05 0.0 0.05" rpy="0 0 0" />
+	<dynamic_object name="Box">
+		<origin xyz="0.0 0.0 0.06" rpy="0 0 0" />
 		<inertial>
 	        <origin xyz="0 0 0" rpy="0 0 0" />
 	        <mass value="0.5" />
@@ -65,9 +60,9 @@
 	</light>
 
 	<camera name="camera_fixed">
-		<position xyz="2.0 0.0 1.0" />
+		<position xyz="0.0 -1.0 0.5" />
 		<vertical xyz="0.0 0.0 1.0" />
-		<lookat xyz="0.0 0.0 0.5" />
+		<lookat xyz="0.0 0.0 0.3" />
 	</camera>
 
 </world>
