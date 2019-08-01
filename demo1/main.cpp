@@ -343,6 +343,32 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		}
 	}
 
+	else if(state == 2) // just start from the initial centroid position
+	{
+
+		Vector3d desired_position = 0.01*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
+		original_pos + Vector3d(0.0, 0.0, -prob_distance);
+		torque = compute_position_cmd_torques(robot, link, pos_in_link, desired_position);
+		if((desired_position - current_position).norm() < 0.001)
+		{
+			state = 3;
+		}
+	}
+
+	else if (state == 3) // has reached the first intermediate point
+	{
+		torque = compute_force_cmd_torques(robot, link, pos_in_link, CoM_of_object);
+		Vector3d temp_finger_velocity = Vector3d::Zero();
+		robot->linearVelocity(temp_finger_velocity, link, pos_in_link);
+		velocity_record.pop_front();
+		velocity_record.push_back(temp_finger_velocity.norm());
+		if (velocity_record[1]/velocity_record[0] < 0.5)
+		{
+			state = 4;
+			cout << link <<" contact"<<endl;
+		}
+	}
+
 	return torque;
 
 }
