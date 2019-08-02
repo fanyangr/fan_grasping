@@ -32,10 +32,12 @@ const std::string JOINT_TORQUES_COMMANDED_KEY = "sai2::graspFan::actuators::fgc"
 
 #define NUM_OF_FINGERS_IN_MODEL 4
 #define NUM_OF_FINGERS_USED     3
+#define CONTACT_DETECT_COEFFICENT  0.8
 
 #define PRE_GRASP               0
 #define FINGER_MOVE_CLOSE       1
-#define CHECK                   2
+#define DETECT_NORMAL           2
+#define CHECK                   3
 
 int state = PRE_GRASP;
 
@@ -48,7 +50,7 @@ VectorXd compute_force_cmd_torques(Sai2Model::Sai2Model* robot, string link, Vec
 // this function is used to detect surface normal by sampling several points in the vicinity
 // It can only be called when the finger tip is making contact with the object surface
 // returns the torque needed 
-VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3d pos_in_link, Vector3d original_pos, Vector3d CoM_of_object, int& state, Vector3d& normal, deque<double>& velocity_record);
+VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3d pos_in_link, Vector3d original_pos, Vector3d CoM_of_object, int& state, deque<Vector3d>& velocity_record, vector<Vector3d>& contact_points, Vector3d& normal);
 
 
 int main (int argc, char** argv) 
@@ -85,12 +87,13 @@ int main (int argc, char** argv)
 	//control 4 fingers, finger 0,1,2,3
 
 	// the vector used to record the velocity in the finger move close state
-	vector<deque<double>> velocity_record;
-	vector<deque<double>> detect_velocity_record;	
+	vector<deque<Vector3d>> velocity_record;
+	vector<deque<Vector3d>> detect_velocity_record;	
 
 
 	// vector<Sai2Primitives::PositionTask *>  position_tasks;
 	vector<int> detect_states;
+	vector<vector<Vector3d>> contact_points;
 	vector<Vector3d> normals;
 	vector<string> link_names;
 	vector<Affine3d> poses;
@@ -108,14 +111,14 @@ int main (int argc, char** argv)
 	link_names.push_back("finger2-link3");
 	link_names.push_back("finger3-link3");
 
-	Vector3d CoM_of_object = Vector3d(0.0,0.0,0.05); // in the world frame
+	Vector3d CoM_of_object = Vector3d(0.05,0.0,0.05); // in the world frame
 	CoM_of_object -= Vector3d(0.0, 0.0, 0.25); // transform into the robor frame
 
 	for(int i = 0; i < NUM_OF_FINGERS_USED; i++)
 	{
-		deque<double> temp_queue;
-		temp_queue.push_back(0.0);
-		temp_queue.push_back(0.0);
+		deque<Vector3d> temp_queue;
+		temp_queue.push_back(Vector3d(0.1,0.1,0.1));
+		temp_queue.push_back(Vector3d(0.1,0.1,0.1));
 		velocity_record.push_back(temp_queue);
 		detect_velocity_record.push_back(temp_queue);
 
@@ -162,9 +165,9 @@ int main (int argc, char** argv)
 			N_prec = palm_posori_task->_N;
 			palm_posori_task->computeTorques(palm_command_torques);
 			//cout << "Here's the torque" << palm_command_torques << endl;
-			temp_finger_command_torques[0] = compute_position_cmd_torques(robot, link_names[0], poses[0].translation(), Vector3d(-0.08, 0.0, -0.19));
-			temp_finger_command_torques[1] = compute_position_cmd_torques(robot, link_names[1], poses[1].translation(), Vector3d(0.15, -0.041, -0.19));
-    		temp_finger_command_torques[2] = compute_position_cmd_torques(robot, link_names[2], poses[2].translation(), Vector3d(0.15, 0.0, -0.19));
+			temp_finger_command_torques[0] = compute_position_cmd_torques(robot, link_names[0], poses[0].translation(), Vector3d(-0.08, 0.0, -0.15));
+			temp_finger_command_torques[1] = compute_position_cmd_torques(robot, link_names[1], poses[1].translation(), Vector3d(0.15, -0.041, -0.15));
+    		temp_finger_command_torques[2] = compute_position_cmd_torques(robot, link_names[2], poses[2].translation(), Vector3d(0.15, 0.0, -0.15));
     		temp_finger_command_torques[3] = compute_position_cmd_torques(robot, link_names[3], poses[3].translation(), Vector3d(0.15, 0.041, -0.09));
 		    		
     		// block the unrelated torques
@@ -175,7 +178,7 @@ int main (int argc, char** argv)
 
 
 
-    		if (palm_command_torques.norm() + finger_command_torques[0].norm() + finger_command_torques[1].norm() + finger_command_torques[2].norm() < 0.00003)
+    		if (palm_command_torques.norm() + finger_command_torques[0].norm() + finger_command_torques[1].norm() + finger_command_torques[2].norm() < 0.0001)
     		{
     			state = FINGER_MOVE_CLOSE;
     		}
@@ -199,8 +202,9 @@ int main (int argc, char** argv)
 					Vector3d temp_finger_velocity = Vector3d::Zero();
 					robot->linearVelocity(temp_finger_velocity, link_names[i], poses[i].translation());
 					velocity_record[i].pop_front();
-					velocity_record[i].push_back(temp_finger_velocity.norm());
-					if (velocity_record[i][1]/velocity_record[i][0] < 0.5)
+					velocity_record[i].push_back(temp_finger_velocity);
+					// if (velocity_record[i][1]/velocity_record[i][0] < 0.5)
+					if ((velocity_record[i][1]-velocity_record[i][0]).norm() > CONTACT_DETECT_COEFFICENT*velocity_record[i][0].norm())
 					{
 						cout <<"finger "<< i <<" contact"<<endl;
 						finger_contact_flag[i] = 1;
@@ -221,14 +225,19 @@ int main (int argc, char** argv)
 			{
 				sum_of_contact += finger_contact_flag[j];
 			}
-			if (sum_of_contact == 3)
+			if (sum_of_contact == NUM_OF_FINGERS_USED)
 			{
-				state = CHECK;
+				state = DETECT_NORMAL;
+				for (int j = 0; j < NUM_OF_FINGERS_USED; j++)
+				{
+					contact_points.push_back({current_finger_position[j]});
+				}
 			}
 		}
 
-		else if (state == CHECK)
+		else if (state == DETECT_NORMAL)
 		{
+			double sum_of_normal = 0.0;
 			palm_posori_task->_desired_position = Vector3d(0.03,0.0,-0.08);
 			N_prec.setIdentity();
 			palm_posori_task->updateTaskModel(N_prec);
@@ -236,13 +245,25 @@ int main (int argc, char** argv)
 			palm_posori_task->computeTorques(palm_command_torques);
 			for (int i = 0; i < NUM_OF_FINGERS_USED; i++)
 			{
-				temp_finger_command_torques[i] = detect_surface_normal(robot, link_names[i], poses[i].translation(), current_finger_position[i], CoM_of_object, detect_states[i], normals[i], detect_velocity_record[i]);
+				temp_finger_command_torques[i] = detect_surface_normal(robot, link_names[i], poses[i].translation(), current_finger_position[i], CoM_of_object, detect_states[i], detect_velocity_record[i], contact_points[i], normals[i]);
  				finger_command_torques[i].block(6 + 4 * i ,0 ,4, 1) = temp_finger_command_torques[i].block(6 + 4 * i, 0 ,4 ,1 );
-				if (i == 0)
-				{
-					cout << finger_command_torques[i].block(6 + 4 * i ,0 ,4, 1) << endl;
-				}
+				sum_of_normal += normals[i].norm();
+				// if (i == 0)
+				// {
+				// 	cout << finger_command_torques[i].block(6 + 4 * i ,0 ,4, 1) << endl;
+				// }
 			}
+			// cout << sum_of_normal << "!!!!!!" << endl;
+			if(sum_of_normal > double(NUM_OF_FINGERS_USED)-0.5)
+			{
+				cout << "all the normals detected" << endl;
+				state = CHECK;
+			}
+
+		}
+
+		else if (state == CHECK)
+		{
 
 		}
 
@@ -311,7 +332,7 @@ VectorXd compute_force_cmd_torques(Sai2Model::Sai2Model* robot, string link, Vec
 	return torque;
 }
 
-VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3d pos_in_link, Vector3d original_pos, Vector3d CoM_of_object, int& state, Vector3d& normal, deque<double>& velocity_record)
+VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3d pos_in_link, Vector3d original_pos, Vector3d CoM_of_object, int& state, deque<Vector3d>& velocity_record, vector<Vector3d>& contact_points, Vector3d& normal)
 {
 	int dof = robot->dof();
 	VectorXd torque = VectorXd::Zero(dof);
@@ -326,7 +347,6 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		if((desired_position - current_position).norm() < 0.001)
 		{
 			state = 1;
-			cout << "!!!!!! " <<link << endl;
 		}
 	}
 	else if (state == 1) // has reached the first intermediate point
@@ -335,15 +355,16 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		Vector3d temp_finger_velocity = Vector3d::Zero();
 		robot->linearVelocity(temp_finger_velocity, link, pos_in_link);
 		velocity_record.pop_front();
-		velocity_record.push_back(temp_finger_velocity.norm());
-		if (velocity_record[1]/velocity_record[0] < 0.5)
+		velocity_record.push_back(temp_finger_velocity);
+		if ((velocity_record[1]-velocity_record[0]).norm() > CONTACT_DETECT_COEFFICENT * velocity_record[0].norm())
 		{
 			state = 2;
 			cout << link <<" contact"<<endl;
+			contact_points.push_back(current_position);
 		}
 	}
 
-	else if(state == 2) // just start from the initial centroid position
+	else if(state == 2) 
 	{
 
 		Vector3d desired_position = 0.01*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
@@ -355,18 +376,133 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		}
 	}
 
-	else if (state == 3) // has reached the first intermediate point
+	else if (state == 3) // has reached the second intermediate point
 	{
 		torque = compute_force_cmd_torques(robot, link, pos_in_link, CoM_of_object);
 		Vector3d temp_finger_velocity = Vector3d::Zero();
 		robot->linearVelocity(temp_finger_velocity, link, pos_in_link);
 		velocity_record.pop_front();
-		velocity_record.push_back(temp_finger_velocity.norm());
-		if (velocity_record[1]/velocity_record[0] < 0.5)
+		velocity_record.push_back(temp_finger_velocity);
+		if ((velocity_record[1]-velocity_record[0]).norm() > CONTACT_DETECT_COEFFICENT * velocity_record[0].norm())
 		{
 			state = 4;
 			cout << link <<" contact"<<endl;
+			contact_points.push_back(current_position);	
+			// cout << contact_points[100] << "test" << endl;		
 		}
+	}
+
+	else if(state == 4) 
+	{
+		Vector3d disp = Vector3d(0.0, 0.0, 0.0);
+		Vector3d origin_disp = (original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm();
+		disp[0] = origin_disp[1]/sqrt(pow(origin_disp[0], 2) + pow(origin_disp[1], 2));
+		disp[1] = - origin_disp[0]/sqrt(pow(origin_disp[0], 2) + pow(origin_disp[1], 2));
+
+		Vector3d desired_position = 0.01*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
+		original_pos + prob_distance * disp;
+		torque = compute_position_cmd_torques(robot, link, pos_in_link, desired_position);
+		if((desired_position - current_position).norm() < 0.001)
+		{
+			state = 5;
+		}
+	}
+
+	else if (state == 5) // has reached the second intermediate point
+	{
+		torque = compute_force_cmd_torques(robot, link, pos_in_link, CoM_of_object);
+		Vector3d temp_finger_velocity = Vector3d::Zero();
+		robot->linearVelocity(temp_finger_velocity, link, pos_in_link);
+		velocity_record.pop_front();
+		velocity_record.push_back(temp_finger_velocity);
+		if ((velocity_record[1]-velocity_record[0]).norm() > CONTACT_DETECT_COEFFICENT * velocity_record[0].norm())
+		{
+			state = 6;
+			cout << link <<" contact"<<endl;
+			contact_points.push_back(current_position);	
+			// cout << contact_points[100] << "test" << endl;		
+		}
+	}
+
+	else if(state == 6) 
+	{
+		Vector3d disp = Vector3d(0.0, 0.0, 0.0);
+		Vector3d origin_disp = (original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm();
+		disp[0] = origin_disp[1]/sqrt(pow(origin_disp[0], 2) + pow(origin_disp[1], 2));
+		disp[1] = - origin_disp[0]/sqrt(pow(origin_disp[0], 2) + pow(origin_disp[1], 2));
+		disp = - disp;
+
+		Vector3d desired_position = 0.01*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
+		original_pos + prob_distance * disp;
+		torque = compute_position_cmd_torques(robot, link, pos_in_link, desired_position);
+		if((desired_position - current_position).norm() < 0.001)
+		{
+			state = 7;
+		}
+	}
+
+	else if (state == 7) // has reached the fourth intermediate point
+	{
+		torque = compute_force_cmd_torques(robot, link, pos_in_link, CoM_of_object);
+		Vector3d temp_finger_velocity = Vector3d::Zero();
+		robot->linearVelocity(temp_finger_velocity, link, pos_in_link);
+		velocity_record.pop_front();
+		velocity_record.push_back(temp_finger_velocity);
+		if ((velocity_record[1]-velocity_record[0]).norm() > CONTACT_DETECT_COEFFICENT * velocity_record[0].norm())
+		{
+			state = 8;
+			cout << link <<" contact "<<endl;
+			contact_points.push_back(current_position);	
+			// cout << contact_points[100] << "test" << endl;		
+		}
+	}
+
+	else if (state == 8) // go back to the original contact position
+	{
+		torque = compute_position_cmd_torques(robot, link, pos_in_link, original_pos);
+		if((original_pos - current_position).norm() < 0.001)
+		{
+			state = 9;
+		}
+	}
+
+	else if (state == 9)  // compute the normal
+	{
+		Matrix3d coefficent_matrix = Matrix3d::Zero();
+		Vector3d mean_position = Vector3d(0.0, 0.0, 0.0);
+		auto centralized_position = contact_points;
+		for (int j = 0; j < contact_points.size(); j++ )
+		{
+			mean_position += contact_points[j];
+		}
+		mean_position /= contact_points.size();
+		for (int j = 0; j < contact_points.size(); j++)
+		{
+			centralized_position[j] -= mean_position;
+		}
+		for (int j = 0; j < contact_points.size(); j++)
+		{
+			coefficent_matrix += centralized_position[j] * centralized_position[j].transpose();
+		}
+		EigenSolver<Matrix3d> solver(coefficent_matrix);
+		Matrix3d eigen_matrix = solver.eigenvectors().real();
+		Vector3d eigen_values = solver.eigenvalues().real();
+		int min_index = 999;
+		double min_value = 999;
+		for (int j = 0; j < 3; j++)
+		{
+			if (eigen_values[j] < min_value)
+			{
+				min_value = eigen_values[j];
+				min_index = j;
+			}
+		}
+		normal = eigen_matrix.real().col(min_index);
+		// cout << "the normal is "<< link << endl << normal << endl << endl;
+		// cout << "the eigen vectors are" << endl << eigen_matrix << endl;
+		// cout << "the eigen values are " << endl << eigen_values << endl;
+
+
 	}
 
 	return torque;
