@@ -32,7 +32,6 @@ const std::string JOINT_TORQUES_COMMANDED_KEY = "sai2::graspFan::actuators::fgc"
 
 #define NUM_OF_FINGERS_IN_MODEL 4
 #define NUM_OF_FINGERS_USED     3
-#define CONTACT_DETECT_COEFFICENT  0.8
 
 #define PRE_GRASP               0
 #define FINGER_MOVE_CLOSE       1
@@ -50,7 +49,7 @@ VectorXd compute_force_cmd_torques(Sai2Model::Sai2Model* robot, string link, Vec
 // this function is used to detect surface normal by sampling several points in the vicinity
 // It can only be called when the finger tip is making contact with the object surface
 // returns the torque needed 
-VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3d pos_in_link, Vector3d original_pos, Vector3d CoM_of_object, int& state, deque<Vector3d>& velocity_record, vector<Vector3d>& contact_points, Vector3d& normal);
+VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3d pos_in_link, Vector3d original_pos, Vector3d CoM_of_object, int& state, deque<double>& velocity_record, vector<Vector3d>& contact_points, Vector3d& normal);
 
 
 int main (int argc, char** argv) 
@@ -87,8 +86,8 @@ int main (int argc, char** argv)
 	//control 4 fingers, finger 0,1,2,3
 
 	// the vector used to record the velocity in the finger move close state
-	vector<deque<Vector3d>> velocity_record;
-	vector<deque<Vector3d>> detect_velocity_record;	
+	vector<deque<double>> velocity_record;
+	vector<deque<double>> detect_velocity_record;	
 
 
 	// vector<Sai2Primitives::PositionTask *>  position_tasks;
@@ -116,9 +115,9 @@ int main (int argc, char** argv)
 
 	for(int i = 0; i < NUM_OF_FINGERS_USED; i++)
 	{
-		deque<Vector3d> temp_queue;
-		temp_queue.push_back(Vector3d(0.1,0.1,0.1));
-		temp_queue.push_back(Vector3d(0.1,0.1,0.1));
+		deque<double> temp_queue;
+		temp_queue.push_back(0.0);
+		temp_queue.push_back(0.0);
 		velocity_record.push_back(temp_queue);
 		detect_velocity_record.push_back(temp_queue);
 
@@ -202,9 +201,8 @@ int main (int argc, char** argv)
 					Vector3d temp_finger_velocity = Vector3d::Zero();
 					robot->linearVelocity(temp_finger_velocity, link_names[i], poses[i].translation());
 					velocity_record[i].pop_front();
-					velocity_record[i].push_back(temp_finger_velocity);
-					// if (velocity_record[i][1]/velocity_record[i][0] < 0.5)
-					if ((velocity_record[i][1]-velocity_record[i][0]).norm() > CONTACT_DETECT_COEFFICENT*velocity_record[i][0].norm())
+					velocity_record[i].push_back(temp_finger_velocity.norm());
+					if (velocity_record[i][1]/velocity_record[i][0] < 0.5)
 					{
 						cout <<"finger "<< i <<" contact"<<endl;
 						finger_contact_flag[i] = 1;
@@ -332,7 +330,7 @@ VectorXd compute_force_cmd_torques(Sai2Model::Sai2Model* robot, string link, Vec
 	return torque;
 }
 
-VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3d pos_in_link, Vector3d original_pos, Vector3d CoM_of_object, int& state, deque<Vector3d>& velocity_record, vector<Vector3d>& contact_points, Vector3d& normal)
+VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3d pos_in_link, Vector3d original_pos, Vector3d CoM_of_object, int& state, deque<double>& velocity_record, vector<Vector3d>& contact_points, Vector3d& normal)
 {
 	int dof = robot->dof();
 	VectorXd torque = VectorXd::Zero(dof);
@@ -355,8 +353,8 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		Vector3d temp_finger_velocity = Vector3d::Zero();
 		robot->linearVelocity(temp_finger_velocity, link, pos_in_link);
 		velocity_record.pop_front();
-		velocity_record.push_back(temp_finger_velocity);
-		if ((velocity_record[1]-velocity_record[0]).norm() > CONTACT_DETECT_COEFFICENT * velocity_record[0].norm())
+		velocity_record.push_back(temp_finger_velocity.norm());
+		if (velocity_record[1]/velocity_record[0] < 0.7)
 		{
 			state = 2;
 			cout << link <<" contact"<<endl;
@@ -382,8 +380,8 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		Vector3d temp_finger_velocity = Vector3d::Zero();
 		robot->linearVelocity(temp_finger_velocity, link, pos_in_link);
 		velocity_record.pop_front();
-		velocity_record.push_back(temp_finger_velocity);
-		if ((velocity_record[1]-velocity_record[0]).norm() > CONTACT_DETECT_COEFFICENT * velocity_record[0].norm())
+		velocity_record.push_back(temp_finger_velocity.norm());
+		if (velocity_record[1]/velocity_record[0] < 0.7)
 		{
 			state = 4;
 			cout << link <<" contact"<<endl;
@@ -414,8 +412,8 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		Vector3d temp_finger_velocity = Vector3d::Zero();
 		robot->linearVelocity(temp_finger_velocity, link, pos_in_link);
 		velocity_record.pop_front();
-		velocity_record.push_back(temp_finger_velocity);
-		if ((velocity_record[1]-velocity_record[0]).norm() > CONTACT_DETECT_COEFFICENT * velocity_record[0].norm())
+		velocity_record.push_back(temp_finger_velocity.norm());
+		if (velocity_record[1]/velocity_record[0] < 0.7)
 		{
 			state = 6;
 			cout << link <<" contact"<<endl;
@@ -447,8 +445,8 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		Vector3d temp_finger_velocity = Vector3d::Zero();
 		robot->linearVelocity(temp_finger_velocity, link, pos_in_link);
 		velocity_record.pop_front();
-		velocity_record.push_back(temp_finger_velocity);
-		if ((velocity_record[1]-velocity_record[0]).norm() > CONTACT_DETECT_COEFFICENT * velocity_record[0].norm())
+		velocity_record.push_back(temp_finger_velocity.norm());
+		if (velocity_record[1]/velocity_record[0] < 0.7)
 		{
 			state = 8;
 			cout << link <<" contact "<<endl;
