@@ -33,7 +33,7 @@ const std::string JOINT_TORQUES_COMMANDED_KEY = "sai2::graspFan::actuators::fgc"
 #define NUM_OF_FINGERS_IN_MODEL 4
 #define NUM_OF_FINGERS_USED     3
 
-#define CONTACT_COEFFICIENT     0.7 
+#define CONTACT_COEFFICIENT     0.5 
 
 #define PRE_GRASP               0
 #define FINGER_MOVE_CLOSE       1
@@ -169,8 +169,8 @@ int main (int argc, char** argv)
 			palm_posori_task->computeTorques(palm_command_torques);
 			//cout << "Here's the torque" << palm_command_torques << endl;
 			temp_finger_command_torques[0] = compute_position_cmd_torques(robot, link_names[0], poses[0].translation(), Vector3d(-0.08, 0.0, -0.15), 10.0);
-			temp_finger_command_torques[1] = compute_position_cmd_torques(robot, link_names[1], poses[1].translation(), Vector3d(0.15, -0.041, -0.15), 10.0);
-    		temp_finger_command_torques[2] = compute_position_cmd_torques(robot, link_names[2], poses[2].translation(), Vector3d(0.15, 0.0, -0.15), 10.0);
+			temp_finger_command_torques[1] = compute_position_cmd_torques(robot, link_names[1], poses[1].translation(), Vector3d(0.15, -0.041, -0.2), 10.0);
+    		temp_finger_command_torques[2] = compute_position_cmd_torques(robot, link_names[2], poses[2].translation(), Vector3d(0.15, 0.0, -0.2), 10.0);
     		temp_finger_command_torques[3] = compute_position_cmd_torques(robot, link_names[3], poses[3].translation(), Vector3d(0.15, 0.041, -0.09), 10.0);
 		    		
     		// block the unrelated torques
@@ -181,7 +181,7 @@ int main (int argc, char** argv)
 
 
 
-    		if (palm_command_torques.norm() + finger_command_torques[0].norm() + finger_command_torques[1].norm() + finger_command_torques[2].norm() < 0.001)
+    		if (palm_command_torques.norm() + finger_command_torques[0].norm() + finger_command_torques[1].norm() + finger_command_torques[2].norm() < 0.0001)
     		{
     			state = FINGER_MOVE_CLOSE;
     		}
@@ -222,6 +222,13 @@ int main (int argc, char** argv)
 				} 
 			}
 
+			// keep the position of fingers that are not used
+			for (int j = NUM_OF_FINGERS_USED; j < NUM_OF_FINGERS_IN_MODEL; j++)
+			{
+	    		temp_finger_command_torques[j] = compute_position_cmd_torques(robot, link_names[j], poses[j].translation(), Vector3d(0.15, 0.041, -0.09), 10.0);
+				finger_command_torques[j].block(6+4*j,0,4,1) = temp_finger_command_torques[j].block(6+4*j,0,4,1);
+			}
+
 			int sum_of_contact = 0;
 			for (int j = 0; j < NUM_OF_FINGERS_USED; j++)
 			{
@@ -258,7 +265,12 @@ int main (int argc, char** argv)
 			}
 			// cout << endl << endl;
 			// cout << sum_of_normal << "!!!!!!" << endl;
-			cout << sum_of_normal << endl;
+			for (int j = NUM_OF_FINGERS_USED; j < NUM_OF_FINGERS_IN_MODEL; j++)
+			{
+	    		temp_finger_command_torques[j] = compute_position_cmd_torques(robot, link_names[j], poses[j].translation(), Vector3d(0.15, 0.041, -0.09), 10.0);
+				finger_command_torques[j].block(6+4*j,0,4,1) = temp_finger_command_torques[j].block(6+4*j,0,4,1);
+			}
+			//cout << sum_of_normal << endl;
 			if(sum_of_normal > double(NUM_OF_FINGERS_USED)-0.5)
 			{
 				cout << "all the normals detected" << endl;
@@ -275,6 +287,11 @@ int main (int argc, char** argv)
 
 		else if (state == APPLY_FORCE)
 		{
+			palm_posori_task->_desired_position = Vector3d(0.03,0.0,-0.08);
+			N_prec.setIdentity();
+			palm_posori_task->updateTaskModel(N_prec);
+			N_prec = palm_posori_task->_N;
+			palm_posori_task->computeTorques(palm_command_torques);
 			for(int j = 1; j < NUM_OF_FINGERS_USED; j++)
 			{
 				temp_finger_command_torques[j] = compute_position_cmd_torques(robot, link_names[j], poses[j].translation(), current_finger_position[j], 100.0);
@@ -294,7 +311,7 @@ int main (int argc, char** argv)
 	//cout << command_torques << endl;
 	redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 		// reset to 0
-	for(int i =0; i < NUM_OF_FINGERS_USED; i++)
+	for(int i =0; i < NUM_OF_FINGERS_IN_MODEL; i++)
 	{
 		temp_finger_command_torques[i].setZero();
 		finger_command_torques[i].setZero();
@@ -318,7 +335,7 @@ VectorXd compute_position_cmd_torques(Sai2Model::Sai2Model* robot, string link, 
 {
 	// double kp = 10;
 	double kv = kp/5;
-	double damping = -0.0001;
+	double damping = -0.005;
 
 	int dof = robot->dof();
 	Vector3d current_position; // in robot frame
