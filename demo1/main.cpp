@@ -36,6 +36,7 @@ const std::string JOINT_TORQUES_COMMANDED_KEY = "sai2::graspFan::actuators::fgc"
 
 #define CONTACT_COEFFICIENT     0.5 
 #define MIN_COLLISION_V         0.01
+#define DISPLACEMENT_DIS        0.02  // how much you wanna move awat from the original point in normal detection step
 
 #define PRE_GRASP               0
 #define FINGER_MOVE_CLOSE       1
@@ -46,7 +47,7 @@ const std::string JOINT_TORQUES_COMMANDED_KEY = "sai2::graspFan::actuators::fgc"
 
 int state = PRE_GRASP;
 
-double prob_distance = 0.002;
+double prob_distance = 0.006; // how much you want the to prob laterally in normal detection step
 
 // the function used in the finger position control command
 VectorXd compute_position_cmd_torques(Sai2Model::Sai2Model* robot, string link, Vector3d pos_in_link, Vector3d desired_position, double kp);
@@ -56,8 +57,8 @@ VectorXd compute_force_cmd_torques(Sai2Model::Sai2Model* robot, string link, Vec
 // It can only be called when the finger tip is making contact with the object surface
 // returns the torque needed 
 VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3d pos_in_link, Vector3d original_pos, Vector3d CoM_of_object, int& state, deque<double>& velocity_record, vector<Vector3d>& contact_points, Vector3d& normal);
-
-
+// this function is used to check whether we can only 2 finger to have a leagal grasp
+bool check_2_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> normals, double friction_coefficent);
 int main (int argc, char** argv) 
 {
 	auto redis_client = RedisClient();
@@ -261,21 +262,21 @@ int main (int argc, char** argv)
 				temp_finger_command_torques[i] = detect_surface_normal(robot, link_names[i], poses[i].translation(), current_finger_position[i], CoM_of_object, detect_states[i], detect_velocity_record[i], contact_points[i], normals[i]);
  				finger_command_torques[i].block(6 + 4 * i ,0 ,4, 1) = temp_finger_command_torques[i].block(6 + 4 * i, 0 ,4 ,1 );
 				sum_of_normal += normals[i].norm();
-				// cout << normals[i] << endl;
-				// if (i == 0)
-				// {
-				// 	cout << finger_command_torques[i].block(6 + 4 * i ,0 ,4, 1) << endl;
-				// }
+/*				cout << normals[i] << endl;
+				if (i == 0)
+				{
+					cout << finger_command_torques[i].block(6 + 4 * i ,0 ,4, 1) << endl;
+				}*/
 			}
-			// cout << endl << endl;
-			// if(loop_counter % 1000 == 0)
-			// {
-			// 	for(int j = 0; j < normals.size(); j++)
-			// 	{
-			// 		cout <<"normals" << j << ":\n" << normals[j] << endl;
-			// 	}
-			// 	cout << sum_of_normal << "!!!!!!" << endl;
-			// }
+/*			cout << endl << endl;
+			if(loop_counter % 1000 == 0)
+			{
+				for(int j = 0; j < normals.size(); j++)
+				{
+					cout <<"normals" << j << ":\n" << normals[j] << endl;
+				}
+				cout << sum_of_normal << "!!!!!!" << endl;
+			}*/
 			for (int j = NUM_OF_FINGERS_USED; j < NUM_OF_FINGERS_IN_MODEL; j++)
 			{
 	    		temp_finger_command_torques[j] = compute_position_cmd_torques(robot, link_names[j], poses[j].translation(), Vector3d(0.15, 0.041, -0.09), 10.0);
@@ -292,6 +293,7 @@ int main (int argc, char** argv)
 
 		else if (state == CHECK)
 		{
+			// check whether we can achieve 2 finger contact.
 			state = APPLY_FORCE;
 
 		}
@@ -401,7 +403,7 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 	if(state == 0) // just start from the initial centroid position
 	{
 
-		Vector3d desired_position = 0.03*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
+		Vector3d desired_position = DISPLACEMENT_DIS*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
 		original_pos + Vector3d(0.0, 0.0, prob_distance);
 		torque = compute_position_cmd_torques(robot, link, pos_in_link, desired_position, 10.0);
 		if((desired_position - current_position).norm() < 0.001)
@@ -429,7 +431,7 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 	else if(state == 2) 
 	{
 
-		Vector3d desired_position = 0.03*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
+		Vector3d desired_position = DISPLACEMENT_DIS*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
 		original_pos + Vector3d(0.0, 0.0, -prob_distance);
 		torque = compute_position_cmd_torques(robot, link, pos_in_link, desired_position, 10.0);
 		if((desired_position - current_position).norm() < 0.001)
@@ -463,7 +465,7 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		disp[0] = origin_disp[1]/sqrt(pow(origin_disp[0], 2) + pow(origin_disp[1], 2));
 		disp[1] = - origin_disp[0]/sqrt(pow(origin_disp[0], 2) + pow(origin_disp[1], 2));
 
-		Vector3d desired_position = 0.03*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
+		Vector3d desired_position = DISPLACEMENT_DIS*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
 		original_pos + prob_distance * disp;
 		torque = compute_position_cmd_torques(robot, link, pos_in_link, desired_position, 10.0);
 		if((desired_position - current_position).norm() < 0.001)
@@ -499,7 +501,7 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		disp[1] = - origin_disp[0]/sqrt(pow(origin_disp[0], 2) + pow(origin_disp[1], 2));
 		disp = - disp;
 
-		Vector3d desired_position = 0.03*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
+		Vector3d desired_position = DISPLACEMENT_DIS*(original_pos - CoM_of_object) / (original_pos - CoM_of_object).norm() + \
 		original_pos + prob_distance * disp;
 		torque = compute_position_cmd_torques(robot, link, pos_in_link, desired_position, 10.0);
 		if((desired_position - current_position).norm() < 0.001)
@@ -539,12 +541,14 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 	else if (state == 9)  // compute the normal
 	{
 		cout << "I am computing the normal for "<< link << endl; 
+		// cout << "contact_points" << endl;
 		Matrix3d coefficent_matrix = Matrix3d::Zero();
 		Vector3d mean_position = Vector3d(0.0, 0.0, 0.0);
 		auto centralized_position = contact_points;
 		for (int j = 0; j < contact_points.size(); j++ )
 		{
 			mean_position += contact_points[j];
+			// cout << contact_points[j] <<endl<< endl;
 		}
 		mean_position /= contact_points.size();
 		for (int j = 0; j < contact_points.size(); j++)
@@ -569,6 +573,15 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 			}
 		}
 		normal = eigen_matrix.real().col(min_index);
+		// the following code chose which direction should the normal choose
+		// it's the direction position to the CoM
+		Vector3d temp = CoM_of_object - original_pos;
+		// cout << normal << endl << endl;
+		if ( temp.dot(normal) < 0)
+		{
+			normal = -normal; // opposite position
+		}
+		cout << "Here is the normal for finger " << link << endl << normal << endl << endl;
 		state = 10;
 		// cout << "the normal is "<< link << endl << normal << endl << endl;
 		// cout << "the eigen vectors are" << endl << eigen_matrix << endl;
@@ -579,4 +592,19 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		torque = compute_position_cmd_torques(robot, link, pos_in_link, original_pos, 10.0);
 	}
 	return torque;
+}
+
+bool check_2_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> normals, double friction_coefficent)
+{
+	Vector3d connect_vector = Vector3d::Zero();
+	contact_points.push_back(contact_points[0]);
+	normals.push_back(normals[0]);
+	int flag = 0;
+	for(int i = 0; i < NUM_OF_FINGERS_USED; i++)
+	{
+		connect_vector = contact_points[i] - contact_points[i+1];
+
+		return true; // TODO 
+
+	}
 }
