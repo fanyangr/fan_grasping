@@ -313,7 +313,8 @@ int main (int argc, char** argv)
 			{
 				temp_finger_command_torques[j] = compute_position_cmd_torques(robot, link_names[j], poses[j].translation(), current_finger_position[j], 100.0);
 			}
-			temp_finger_command_torques[0] = compute_force_cmd_torques(robot, link_names[0], poses[0].translation(), CoM_of_object, 0.5);
+			robot->position(current_finger_position[0], link_names[0], poses[0].translation());
+			temp_finger_command_torques[0] = compute_force_cmd_torques(robot, link_names[0], poses[0].translation(), current_finger_position[0] + normals[0], 0.3);
 			for(int j = 0; j < NUM_OF_FINGERS_USED; j++)
 			{
     			finger_command_torques[j].block(6 + 4 * j ,0 ,4, 1) = temp_finger_command_torques[j].block(6 + 4 * j, 0 ,4 ,1 );
@@ -572,15 +573,10 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		// cout << "the normal is "<< link << endl << normal << endl << endl;
 		// cout << "the eigen vectors are" << endl << eigen_matrix << endl;
 		// cout << "the eigen values are " << endl << eigen_values << endl;
-
-
 	}
 	else if (state == 10) // maintain the original contact position
 	{
 		torque = compute_position_cmd_torques(robot, link, pos_in_link, original_pos, 10.0);
 	}
-
-
 	return torque;
-
 }
