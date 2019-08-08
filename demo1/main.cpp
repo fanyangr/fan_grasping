@@ -37,6 +37,7 @@ const std::string JOINT_TORQUES_COMMANDED_KEY = "sai2::graspFan::actuators::fgc"
 #define CONTACT_COEFFICIENT     0.5 
 #define MIN_COLLISION_V         0.01
 #define DISPLACEMENT_DIS        0.02  // how much you wanna move awat from the original point in normal detection step
+#define FRICTION_COEFFICIENT     0.5
 
 #define PRE_GRASP               0
 #define FINGER_MOVE_CLOSE       1
@@ -58,7 +59,8 @@ VectorXd compute_force_cmd_torques(Sai2Model::Sai2Model* robot, string link, Vec
 // returns the torque needed 
 VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3d pos_in_link, Vector3d original_pos, Vector3d CoM_of_object, int& state, deque<double>& velocity_record, vector<Vector3d>& contact_points, Vector3d& normal);
 // this function is used to check whether we can only 2 finger to have a leagal grasp
-bool check_2_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> normals, double friction_coefficent);
+bool check_2_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> normals, double friction_coefficient);
+bool check_3_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> normals, double friction_coefficient);
 int main (int argc, char** argv) 
 {
 	auto redis_client = RedisClient();
@@ -294,7 +296,9 @@ int main (int argc, char** argv)
 		else if (state == CHECK)
 		{
 			// check whether we can achieve 2 finger contact.
-			state = APPLY_FORCE;
+			if (check_2_finger_grasp(current_finger_position, normals, FRICTION_COEFFICIENT))
+				{state = APPLY_FORCE;}
+
 
 		}
 
@@ -542,7 +546,7 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 	{
 		cout << "I am computing the normal for "<< link << endl; 
 		// cout << "contact_points" << endl;
-		Matrix3d coefficent_matrix = Matrix3d::Zero();
+		Matrix3d coefficient_matrix = Matrix3d::Zero();
 		Vector3d mean_position = Vector3d(0.0, 0.0, 0.0);
 		auto centralized_position = contact_points;
 		for (int j = 0; j < contact_points.size(); j++ )
@@ -557,9 +561,9 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 		}
 		for (int j = 0; j < contact_points.size(); j++)
 		{
-			coefficent_matrix += centralized_position[j] * centralized_position[j].transpose();
+			coefficient_matrix += centralized_position[j] * centralized_position[j].transpose();
 		}
-		EigenSolver<Matrix3d> solver(coefficent_matrix);
+		EigenSolver<Matrix3d> solver(coefficient_matrix);
 		Matrix3d eigen_matrix = solver.eigenvectors().real();
 		Vector3d eigen_values = solver.eigenvalues().real();
 		int min_index = 999;
@@ -594,17 +598,35 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 	return torque;
 }
 
-bool check_2_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> normals, double friction_coefficent)
+bool check_2_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> normals, double friction_coefficient)
 {
+	double alpha;
+	alpha = atan(friction_coefficient);
 	Vector3d connect_vector = Vector3d::Zero();
 	contact_points.push_back(contact_points[0]);
 	normals.push_back(normals[0]);
 	int flag = 0;
 	for(int i = 0; i < NUM_OF_FINGERS_USED; i++)
 	{
-		connect_vector = contact_points[i] - contact_points[i+1];
-
-		return true; // TODO 
-
+		flag = 0;
+		connect_vector = contact_points[i+1] - contact_points[i];
+		if(normals[i].dot(connect_vector)/(normals[i].norm() * connect_vector.norm()) > cos(alpha));
+		{
+			flag++;
+		}
+		if(-normals[i+1].dot(connect_vector)/(normals[i+1].norm() * connect_vector.norm()) < cos(alpha))
+		{
+			flag++;
+		}
+		if (flag == 2)
+		{
+			return true;
+		}
 	}
+	return false;
+}
+
+bool check_3_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> normals, double friction_coefficient)
+{
+	return true;
 }
