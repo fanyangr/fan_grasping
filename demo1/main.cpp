@@ -61,6 +61,11 @@ VectorXd detect_surface_normal(Sai2Model::Sai2Model* robot, string link, Vector3
 // this function is used to check whether we can only 2 finger to have a leagal grasp
 bool check_2_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> normals, double friction_coefficient);
 bool check_3_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> normals, double friction_coefficient);
+// verify whether these 3 normals can positively span the space. it's not very restrict. Because 
+// this code doesn't project all the normals in the same plane
+// if the normals positivelt span the space, then the cross product for an arbitrary normal with the other 2 normals
+// should be one positive and one negative.
+bool check_positive_span_space(vector<Vector3d> normals);
 int main (int argc, char** argv) 
 {
 	auto redis_client = RedisClient();
@@ -628,5 +633,53 @@ bool check_2_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> norma
 
 bool check_3_finger_grasp(vector<Vector3d> contact_points,vector<Vector3d> normals, double friction_coefficient)
 {
+	// first, we need to transform the problem into a palnar problem
+	//the first step is to use Schmidt orthogonalization to get a standard unit base
+	Vector3d base_1 = contact_points[1] - contact_points[0];
+	Vector3d temp = contact_points[2] - contact_points[0];
+	Vector3d base_2 = temp - temp.dot(base_1) / base_1.dot(base_1) * base_1;
+	Vector3d base_3 = base_1.cross(base_2);
+	base_1 = base_1 / base_1.norm(); // normalization
+	base_2 = base_2 / base_2.norm();
+	base_3 = base_3 / base_3.norm();
+	// get the transformation matrix
+	Matrix3d R_inverse = Matrix3d::Zero();
+	R_inverse.block(0,0,1,3) = base_1;
+	R_inverse.block(0,1,1,3) = base_2;
+	R_inverse.block(0,2,1,3) = base_3;
+	Matrix3d R = R_inverse.inverse(); // R is the trasformation matrix from the original base to the current base
+	vector<double> thetas;
+	for ( int i = 0; i < NUM_OF_FINGERS_USED; i++)
+	{
+		contact_points[i] = R * contact_points[i];
+		normals[i] = R * normals[i];
+		thetas.push_back(asin(normals[i][2]));
+	}
+	
+
 	return true;
+}
+bool check_positive_span_space(vector<Vector3d> normals)
+{
+	for (int i = 0; i < NUM_OF_FINGERS_USED; i++)
+	{
+		normals.push_back(normals[i]);
+	}
+	int flag = 0;
+	for (int i = 0; i < NUM_OF_FINGERS_USED; i++)
+	{
+		if(normals[i].cross(normals[i+1]).dot(normals[i].cross(normals[i+2])) < 0)
+		{
+			flag++;
+		}
+
+	}
+	if(flag == 3)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
